@@ -1,8 +1,8 @@
 
-INCL	= term.h term_table.h
-SRC	= main.c term.c
+INCL	= term.h term_table.h lisp.h
+SRC	= main.c term.c lisp.c
 OBJ	= $(SRC:.c=.o)
-LIBS	= -lpthread -lecl -lutil -lgc
+LIBS	= -lpthread -lecl -lutil -lgc -lreadline
 EXE	= exoshell
 
 CC	= gcc
@@ -25,9 +25,4 @@ debug:
 
 clean:
 	$(RM) $(OBJ) $(EXE) core a.out
-
-# shelljack: shelljack.c
-# 	gcc -o shelljack shelljack.c -Wall -I/usr/local/include -L/usr/local/lib -lpthread -lecl -lutil -lgc
-# clean:
-# 	rm -f shelljack 
 

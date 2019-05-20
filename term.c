@@ -67,7 +67,7 @@ int rewind_esc(struct term *t) {
     case 0x9f: // APC
     case 0x9b: // CSI
       t->buf[t->pos] = '\0'; 
-      ret =  t->pos - pos; 
+      ret = t->pos - pos; 
       t->pos = pos; 
       return ret; 
     default:
@@ -117,9 +117,11 @@ void term_clear(struct term *t) {
 void csi_map(struct term *t) {
 
   // TODO rewrind, then replace. 
-  /* switch(t->state) { */
-  /* case CASE_ED_MAP: */
-  /* } */
+  switch(t->state) {
+  case CASE_ED_MAP:
+    rewind_esc(t);
+    // TODO replace with proper clear up from bottom/top; 
+  }
   t->state = CASE_PRINT;
   
 
@@ -245,7 +247,6 @@ void term_resize(struct term *t, int top, int bottom, int columns) {
   wbuf.ws_row = bottom - top - 1; 
   wbuf.ws_col = columns;
   ioctl(t->pty, TIOCSWINSZ, &wbuf);
-  
 }
 
 void term_write(struct term *t, const void *buf, size_t count) {

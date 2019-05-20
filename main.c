@@ -14,9 +14,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <ecl/ecl.h>
 
 #include "term.h"
+#include "lisp.h"
+
 
 struct tstate {
   int state;
@@ -27,12 +28,10 @@ struct tstate {
   unsigned char buf[4096]; 
 };
 
-
 int sigpipe = 0; 
 
 // Handle signals SIGINT,  SIGWINCH.
 static void signal_handler(int signo); 
-
 static void signal_handler(int signo) {
   
   char sig = 0; 
@@ -54,51 +53,6 @@ static void signal_handler(int signo) {
     write(sigpipe, &sig, 1);
     fcntl(sigpipe, F_SETFL, opt);
   }
-}
-
-#define DEFUN(name,fun,args)                    \
-  cl_def_c_function(c_string_to_object(name),   \
-                    (cl_objectfn_fixed)fun,     \
-                    args)
-
-// Define a function to run arbitrary Lisp expressions
-cl_object lisp(const char *call) {
- return cl_safe_eval(c_string_to_object(call), Cnil, Cnil);
-}
-
-
-char *elc_object_to_c_string(cl_object o) {
-
-  int l = o->string.dim;
-  char *s = malloc(l+1);
-  memset(s, 0, l+1);
-
-  for(int i=0; i < l; i++) {
-    s[i] = (char) o->string.self[i];
-  }
-
-  return s;
-}
-
-
-int target_term_fd = 0; 
-cl_object send_raw(cl_object i) {
-
-  char *s = elc_object_to_c_string(i);
-  if(target_term_fd) {
-    write(target_term_fd, s, i->string.dim);
-  }
-  free(s);
-  return Cnil;
-}
-
-void initialize_cl(int argc, char **argv) {
-  ecl_set_option(ECL_OPT_TRAP_SIGINT, 0);
-  cl_boot(argc, argv);
-  atexit(cl_shutdown);
-
-  lisp("(load \"initrc.lisp\")");
-  DEFUN("send-raw", send_raw, 1);
 }
 
 void close_minibuffer(struct term *target, struct term *control) {
@@ -170,39 +124,16 @@ int main(int argc, char **argv) {
   pipe(control_pipe_in);
   pipe(control_pipe_out);
 
-  // make this accessible to the lisp fork.
-  // This will be removed later and injecting text to the target terminal will
-  // be done over IPC via control_pipe_out. 
-  target_term_fd = target_pty; 
-  
   control_pid = forkpty(&control_pty, NULL, NULL, &wbuf);
   if(!control_pid) { // child
 
     close(control_pipe_in[1]);
     close(control_pipe_out[0]);
-    initialize_cl(argc,argv);
 
-    for(;;) {
-      char c;
-      int rc = read(control_pipe_in[0], &c, 1);
-      if( rc == -1 ) {
-        if( errno != EINTR)
-          break;
-        else
-          continue;
-      }
-
-      switch(c){
-      case 's':
-        lisp("(start-shell)");
-        dprintf(control_pipe_out[1], "c");
-        break;
-      }
-    }
+    exoshell(argc, argv, control_pipe_in[0], control_pipe_out[1], target_pty); 
      
      _exit(0);
   }
-
   
   // Initialize target terminal. 
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
@@ -271,7 +202,6 @@ int main(int argc, char **argv) {
           last = &target;
         }
         
-
         term_update(&target, &output[0], ret);
 
         // Keeps the cursor on control if active. 
