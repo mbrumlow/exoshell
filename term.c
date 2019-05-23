@@ -158,27 +158,6 @@ int last_esc(struct term *t) {
     if(esc_start[t->buf[pos]])
       return pos;
     pos--;
-    /* switch(t->buf[pos]) { */
-    /* case 0x08: // BS */
-    /* case 0x0a: // LF */
-    /* case 0x0b: // VT */
-    /* case 0x0c: // FF */
-    /* case 0x0d: // CR */
-    /* case 0x1b: // ESC */
-    /* case 0x90: // DCS */
-    /* case 0x96: // SPA */
-    /* case 0x97: // EPA */
-    /* case 0x98: // SOS */
-    /* case 0x9a: // DECID */
-    /* case 0x9c: // ST */
-    /* case 0x9d: // OCS */
-    /* case 0x9e: // PM */
-    /* case 0x9f: // APC */
-    /* case 0x9b: // CSI */
-    /*   return pos; */
-    /* default: */
-    /*   pos--;  */
-    /* } */
   }
   return -1;
   
@@ -197,37 +176,6 @@ int rewind_esc(struct term *t) {
   ret = t->pos - pos; 
   t->pos = pos; 
   return ret; 
-
-  
-  /* // TODO: use last_esc;  */
-  /* while(pos >= 0) { */
-  /*   switch(t->buf[pos]) { */
-  /*   case 0x08: // BS */
-  /*   case 0x0a: // LF */
-  /*   case 0x0b: // VT */
-  /*   case 0x0c: // FF */
-  /*   case 0x0d: // CR */
-  /*   case 0x1b: // ESC */
-  /*   case 0x90: // DCS */
-  /*   case 0x96: // SPA */
-  /*   case 0x97: // EPA */
-  /*   case 0x98: // SOS */
-  /*   case 0x9a: // DECID */
-  /*   case 0x9c: // ST */
-  /*   case 0x9d: // OCS */
-  /*   case 0x9e: // PM */
-  /*   case 0x9f: // APC */
-  /*   case 0x9b: // CSI */
-  /*     t->buf[t->pos] = '\0';  */
-  /*     ret = t->pos - pos;  */
-  /*     t->pos = pos;  */
-  /*     return ret;  */
-  /*   default: */
-  /*     pos--;  */
-  /*   } */
-  /* } */
-  
-  /* return 0;  */
 }
 
 void checkpoint(struct term *t) {
@@ -242,12 +190,11 @@ void term_save(struct term *t) {
   
   /* t->cursor_row = t->check_row; */
   /* t->cursor_column = t->check_column; */
-
   
-  /* if(t->check_row != t->cursor_row || t->check_column != t->cursor_column) { */
-  /*   term_debug(t, "FIXME CURSOR MISMATCH: row_want: %d, row_have: %d, column_want: %d, column_have: %d\n", */
-  /*         t->cursor_row, t->check_row, t->cursor_column, t->check_column);  */
-  /* } */
+  if(t->check_row != t->cursor_row || t->check_column != t->cursor_column) {
+    TERM_DEBUG(CURSOR, t, "MISMATCH: row_want: %d, row_have: %d, column_want: %d, column_have: %d\n",
+               t->cursor_row, t->check_row, t->cursor_column, t->check_column);
+  }
 }
 
 void term_save_cursor(struct term *t) {
