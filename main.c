@@ -15,9 +15,10 @@
 #include <sys/wait.h>
 
 
+#include "log.h"
 #include "term.h"
 #include "lisp.h"
-
+#include "test.h"
 
 struct tstate {
   int state;
@@ -55,19 +56,26 @@ static void signal_handler(int signo) {
   }
 }
 
-void close_minibuffer(struct term *target, struct term *control) {
-
+struct term *close_minibuffer(struct term *target, struct term *control, struct term *current, struct term *last) {
+  
   struct winsize wbuf;
+  
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
 
-  term_set_extra(control, "\033[m"); 
-  term_select(control);
-  term_clear(control);
-  term_unset_extra(control);
-  
-  term_unset_extra(target); 
+  if(control != last) { 
+    term_set_extra(control, "\033[m"); 
+    term_select(control);
+    term_unset_extra(control);
+    //term_clear(control);
+    control->init = 0; 
+  }
+
   term_select(target);
   term_resize(target, 1, wbuf.ws_row, wbuf.ws_col);
+  term_unset_extra(target);
+  term_select(target);
+  return target;
+  
 }
 
 void open_minibuffer(struct term *target, struct term *control, int control_pty, int size) {
@@ -75,23 +83,60 @@ void open_minibuffer(struct term *target, struct term *control, int control_pty,
     struct winsize wbuf;
     
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
-    term_resize(target, 1, wbuf.ws_row - size, wbuf.ws_col); 
 
+    // Prep top terminal.
+    term_resize(target, 1, wbuf.ws_row - size, wbuf.ws_col); 
+    term_set_extra(target, "\033[m");
+    term_save(target); 
+    
+    // Initialize bottom terminal.
     term_init(control, wbuf.ws_row-size+2, wbuf.ws_row, wbuf.ws_col,
               STDIN_FILENO, control_pty);
-    control->cursor_row = wbuf.ws_row-size + 2;
-    control->cursor_column = 1;
-
+    control->id = 2; 
     term_set_extra(control, "\033[32m\033[40m\033[1m");  
+
     term_select(control);
     term_clear(control); 
-    term_set_extra(target, "\033[m"); 
+
 }
 
-int main(int argc, char **argv) {
+struct term *resize(struct term *target, struct term *control, struct term *current, struct term *last, int size) {
+    
+    struct winsize wbuf;
+    int bottom;
+    
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
+    bottom = wbuf.ws_row; 
+
+    if(target != last) { 
+
+      // control is active, minibuffer open.
+      if(current == control) { 
+        term_save(control);
+        bottom = wbuf.ws_row-size; 
+      }
+      
+
+    }
+
+    term_select(target);
+    term_resize(target, 1, bottom, wbuf.ws_col); 
+    term_select(target);
+    
+    if(control != current)
+      return target;
+
+    term_select(control);
+    term_resize(control, bottom+2, wbuf.ws_row, wbuf.ws_col); 
+    term_select(control);
+
+    return control; 
+}
+
+int exoshell_main(int argc, char **argv) { 
 
   int ret; 
-  int pid;
+  int target_pid;
   int control_pid; 
   int wstatus;
   int target_pty;
@@ -107,13 +152,17 @@ int main(int argc, char **argv) {
   struct term control; 
   struct term *last = NULL;
   struct term *current = NULL;
-  
   unsigned char input[4096], output[4096];
+  
+  target.init = 0;
+  control.init = 0; 
+
+  log_init(argc, argv); 
 
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
   
-  pid = forkpty(&target_pty, NULL, NULL, &wbuf); 
-  if(!pid){ // child
+  target_pid = forkpty(&target_pty, NULL, NULL, &wbuf); 
+  if(!target_pid){ // child
     char *cmd = "/bin/bash";
     char *argv[2];
     argv[0] = "bash";
@@ -131,14 +180,13 @@ int main(int argc, char **argv) {
     close(control_pipe_out[0]);
 
     exoshell(argc, argv, control_pipe_in[0], control_pipe_out[1], target_pty); 
-     
      _exit(0);
   }
   
   // Initialize target terminal. 
-  ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
   term_init(&target, 1, wbuf.ws_row, wbuf.ws_col, STDIN_FILENO, target_pty);
-
+  target.id = 1;
+  
   // Set up pipe based signal handler. 
   pipe(signal_pipe);
   sigpipe = signal_pipe[1];
@@ -163,8 +211,8 @@ int main(int argc, char **argv) {
   if(max < signal_pipe[0]) max = signal_pipe[0];
   if(max < control_pipe_out[0]) max = control_pipe_out[0];
 
-  current = &target; 
-  
+  current = &target;
+
   for(;;) { // main loop
     
     FD_ZERO(&readfds);
@@ -186,7 +234,7 @@ int main(int argc, char **argv) {
     if(FD_ISSET(STDIN_FILENO, &readfds)) {
       ret = read(STDIN_FILENO, &input, sizeof(input));
       if(ret != -1) {
-        term_write(current, &input, ret); 
+        term_send(current, &input, ret); 
       } else {
         break; 
       }
@@ -206,11 +254,9 @@ int main(int argc, char **argv) {
 
         // Keeps the cursor on control if active. 
         if(current == &control) { 
-          if(last != &control){
             term_save(&target);
             term_select(&control); 
             last = &control;
-          }
         }
       
       } else {
@@ -244,17 +290,27 @@ int main(int argc, char **argv) {
         switch(sig) {
         case SIGINT:
 
+          // This is not likely to happen.
+          // But we should ensure target term is selected before opening the minibuffer.
+          if(last != &target){
+            term_save(&control);
+            term_select(&target); 
+            last = &target;
+          }
+          
           open_minibuffer(&target, &control, control_pty, 12); 
-          last = NULL; 
+          last = &control;
           current = &control;
+          kill(target_pid, SIGWINCH);
           dprintf(control_pipe_in[1], "s");
           
           break;
         case SIGWINCH:
-          // TODO handle resizing. 
-          /* ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf); */
-          /* ioctl(master, TIOCSWINSZ, &wbuf); */
-          /* kill(pid, SIGWINCH); */
+
+          last = resize(&target, &control, current, last, 12); 
+          kill(target_pid, SIGWINCH);
+          kill(control_pid, SIGWINCH);
+                
           break;
         }
         
@@ -268,8 +324,11 @@ int main(int argc, char **argv) {
       read(control_pipe_out[0], &c, 1);
       switch(c) {
       case 'c':
-        close_minibuffer(&target, &control);
+
+        last = close_minibuffer(&target, &control, current, last);
+        kill(target_pid, SIGWINCH);
         current = &target;
+        
         break;
       }
     }
@@ -282,8 +341,8 @@ int main(int argc, char **argv) {
   waitpid(control_pid, &wstatus, 0);
   
   // Wait for our child, we don't want any zombies.
-  kill(pid, SIGTERM); 
-  waitpid(pid, &wstatus, 0);
+  kill(target_pid, SIGTERM); 
+  waitpid(target_pid, &wstatus, 0);
 
   // Put the term back to working order.
   // Hey, maybe we should save the flags before we change them? 
@@ -292,5 +351,21 @@ int main(int argc, char **argv) {
   tios.c_lflag |= (ECHO | ECHONL);
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &tios);
 
+  return 0; 
 }
 
+int exoshell_test(int argc, char **argv) {
+  return test_run(); 
+}
+
+int main(int argc, char **argv) {
+
+  int i; 
+  for(i = 0; i < argc; i++) {
+    if(strcmp(argv[i], "-test") == 0) {
+      return exoshell_test(argc, argv); 
+    }
+  }
+  
+  return exoshell_main(argc, argv); 
+}

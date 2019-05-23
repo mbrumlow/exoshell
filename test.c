@@ -281,15 +281,6 @@ int test_run() {
   int pass = 1;
   struct termios tios;
   
-  /* struct winsize wbuf; */
-  /* ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf); */
-  /* printf("ROWS: %d, COLS: %d\n", wbuf.ws_row, wbuf.ws_col); */
-  /* return 0; */
-  
-  //  clear();
-  
-  /* log_init(open("log.txt", O_CREAT|O_APPEND|O_WRONLY));  */
-  
   // Disable ICANON and ECHO on the hos terminal.
   tcgetattr(STDIN_FILENO, &tios);
   tios.c_lflag &= ~ICANON;
