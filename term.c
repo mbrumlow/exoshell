@@ -7,6 +7,7 @@
 #include <errno.h> 
 #include <pty.h>
 
+#include "util.h"
 #include "log.h"
 #include "term.h"
 #include "term_table.h"
@@ -45,36 +46,9 @@ void term_debug(int flag, struct term *t, char *fmt, ...) {
 
 }
 
-// TODO move this to a util package.
-int full_write(int fd, void *ptr, int len) {
-  
-  if(len == 0) return 0;
-
-  int count = 0;
-  unsigned char *buf = ptr;
-
-  write(fd, buf, len);
-  return 0;
-  
-  do {
-
-    do {
-      count = write(fd, buf, len); 
-    } while ( count < 0 && errno == EINTR ); 
-
-    if(count == 0) break;
-
-    if (count < 0 || count > len) {
-      return count; 
-    }
-
-    len += count;
-    buf += count; 
-    
-  } while (len > 0); 
-  
-  return (int)(buf - (unsigned char *)ptr);
-  
+void term_write_raw(struct term *t, char *buf, int size) {
+  TERM_DEBUG(TERM_WRITE, t, "WRITE(%d): '%s'\n", size, buf);
+  writefd(t->host, buf, size);
 }
 
 void term_write(struct term *t, char *fmt, ...) {
@@ -105,7 +79,7 @@ void term_write(struct term *t, char *fmt, ...) {
   }
 
   TERM_DEBUG(TERM_WRITE, t, "WRITE(%d): '%s'\n", size, p); 
-  full_write(t->host, p, size);
+  term_write_raw(t, p, size); 
   free(p); 
 }
 
@@ -184,16 +158,28 @@ void checkpoint(struct term *t) {
 
 // Saves current term state. 
 void term_save(struct term *t) {
-  if(!t->init) return; 
+  
+  if(!t->init) return;
+  
   term_write(t, "\033[6n");
   read_cursor(t->host, &t->cursor_row, &t->cursor_column);
+
+  TERM_DEBUG(TERM, t, "term_save: top: %d, bot: %d, cr: %d, cc: %d\n",
+             t->top, t->bottom, t->cursor_row, t->cursor_column);
   
   /* t->cursor_row = t->check_row; */
   /* t->cursor_column = t->check_column; */
   
   if(t->check_row != t->cursor_row || t->check_column != t->cursor_column) {
-    TERM_DEBUG(CURSOR, t, "MISMATCH: row_want: %d, row_have: %d, column_want: %d, column_have: %d\n",
+    TERM_DEBUG(CURSOR|FIXME|INFO, t, "MISMATCH: row_want: %d, row_have: %d, column_want: %d, column_have: %d\n",
                t->cursor_row, t->check_row, t->cursor_column, t->check_column);
+
+    // Going to re-sync them.
+    // TODO log: and produce a buffer containing the term changes this to
+    // happen. 
+    t->check_row = t->cursor_row;
+    t->check_column = t->cursor_column;
+    
   }
 }
 
@@ -224,20 +210,27 @@ void term_select(struct term *t) {
   if(t->extra){
     write(t->host, t->extra, strlen(t->extra));
   }
-  /* term_debug(t, "term_select: top: %d, bottom: %d, crow: %d, COL: %d\n", */
-  /*         t->top, t->bottom, t->cursor_row, t->cursor_column); */
+
+  TERM_DEBUG(TERM, t, "term_select: top: %d, bot: %d, cr: %d, cc: %d\n",
+             t->top, t->bottom, t->cursor_row, t->cursor_column);
+
   term_write(t, "\033[%d;%dH\033[%d;%dr\033[?1;9l\033[%d;%dH",
              t->cursor_row, t->cursor_column, t->top, t->bottom, t->cursor_row, t->cursor_column);
-
 }
 
 // Clears terminal region. 
 void term_clear(struct term *t) {
+
+  int row, col;
+  
+  term_write(t, "\033[6n");
+  read_cursor(t->host, &row, &col);
+  
   // Only supports to terms, region erase seems to only work on xterm :/ 
   if(t->top == 1) {
-    term_write(t, "\033[%d;%dH\033[1J", t->bottom, 1);
+    term_write(t, "\033[%d;%dH\033[1J\033[%d;%dH", t->bottom, 1, row, col);
   } else { 
-    term_write(t, "\033[%d;%dH\033[0J", t->top, 1);
+    term_write(t, "\033[%d;%dH\033[0J\033[%d;%dH", t->top, 1, row, col);
   }
 }
 
@@ -356,19 +349,36 @@ void term_cursor_next(struct term *t) {
 }
 
 void term_flush(struct term *t) {
-
+  
+  int otop = t->top;
+  int obot = t->bottom;
+  int ocr = t->cursor_row;
+  int occ = t->cursor_column;
+  int occr = t->check_row;
+  int occc = t->check_column; 
+  
   int i,z; 
   if(t->checkpoint > 0) {
-    write(t->host, &t->buf[0], t->checkpoint);
-    // TODO: use memcpy;
-    z = 0;
-    for(i = t->checkpoint; i < t->pos; i++, z++) {
-      t->buf[z] = t->buf[i];
-    }
+    TERM_DEBUG(TERM, t, "term_flush_A: cp: %d,  top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d, ccr: %d -> %d, ccc: %d -> %d\n",
+               t->checkpoint, otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column, occr, t->check_row, occc, t->check_column);
+
+    /* write(t->host, &t->buf[0], t->checkpoint); */
+    term_write_raw(t, (char *) &t->buf[0], t->checkpoint);
+
+    memmove(&t->buf[0], &t->buf[t->checkpoint], t->pos - t->checkpoint);
+    
+    /* z = 0; */
+    /* for(i = t->checkpoint; i < t->pos; i++, z++) { */
+    /*   t->buf[z] = t->buf[i]; */
+    /* } */
+    
     t->pos = t->pos - t->checkpoint;
     t->checkpoint = 0;
     t->check_row = t->next_row;
     t->check_column = t->next_column;
+
+    TERM_DEBUG(TERM, t, "term_flush_B: cp: %d,  top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d, ccr: %d -> %d, ccc: %d -> %d\n",
+               t->checkpoint, otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column, occr, t->check_row, occc, t->check_column);
 
   }
 }
@@ -559,17 +569,34 @@ void term_update(struct term *t, unsigned char *buf, int len) {
 
 void term_resize(struct term *t, int top, int bottom, int columns) {
 
+  int otop = t->top;
+  int obot = t->bottom;
+  int ocr = t->cursor_row;
+  int occ = t->cursor_column;
   int diff = t->bottom - bottom;
   struct winsize wbuf;
-  
+
+  TERM_DEBUG(TERM, t, "term_resize_A: top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d\n",
+             otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column);
+    
   term_save(t);
 
-  if(t->cursor_row > bottom) {
-    t->cursor_row -= diff;
-    term_write(t, "\033[%d;%dr\033[%dS\033[%d;%dH",
-            t->top, t->bottom, diff,
-            t->cursor_row, t->cursor_column);
+  TERM_DEBUG(TERM, t, "term_resize_B: top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d\n",
+             otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column);
 
+
+  
+  if(t->cursor_row > bottom) {
+    TERM_DEBUG(TERM|CURSOR, t, "term_resize_C: diff: %d, top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d\n",
+               diff, otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column);
+  
+    t->cursor_row -= diff;
+    t->next_row -= diff; // TODO: do we need to bump next? 
+    t->check_row -= diff;
+    
+    term_write(t, "\033[%d;%dr\033[%dS\033[%d;%dH",
+               t->top, t->bottom, diff,
+               t->cursor_row, t->cursor_column);
   } // TODO: else clear region? 
 
   t->top = top;
@@ -580,6 +607,10 @@ void term_resize(struct term *t, int top, int bottom, int columns) {
   wbuf.ws_col = columns;
   
   ioctl(t->pty, TIOCSWINSZ, &wbuf);
+
+  TERM_DEBUG(TERM, t, "term_resize_D: top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d\n",
+             otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column);
+
 }
 
 void term_send(struct term *t, const void *buf, size_t count) {

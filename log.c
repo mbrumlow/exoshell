@@ -14,24 +14,47 @@
 static int stdlog = -1; 
 static uint64_t flags = 0;
 
+int log_check_flag(char *flag, char *check, int len) {
+
+  if(strlen(check) != len) {
+    return 0; 
+  }
+
+  if(strncmp(flag, check, len) == 0){
+    return 1; 
+  }
+
+  return 0; 
+}
+
 int log_set_flag(char *flag, int len) {
 
-  if(strncmp(flag, "escape", len) == 0){
+  if(log_check_flag(flag, "fixme", len)){
+    debug(INFO, "+debug: fixme\n");
+    flags |= FIXME;
+  }
+
+  if(log_check_flag(flag, "term", len)){
+    debug(INFO, "+debug: term\n");
+    flags |= TERM;
+  }
+
+  if(log_check_flag(flag, "escape", len)){
     debug(INFO, "+debug: escape\n");
     flags |= ESCAPE;
   }
   
-  if(strncmp(flag, "update", len) == 0){
+  if(log_check_flag(flag, "update", len)){
     debug(INFO, "+debug: update\n");
     flags |= UPDATE;
   }
   
-  if(strncmp(flag, "cursor", len) == 0){
+  if(log_check_flag(flag, "cursor", len)){
     debug(INFO, "+debug: cursor\n");
     flags |= CURSOR;
   }
 
-  if(strncmp(flag, "term_write", len) == 0){
+  if(log_check_flag(flag, "term_write", len)){
     debug(INFO, "+debug: term_write\n");
     flags |= TERM_WRITE;
   }

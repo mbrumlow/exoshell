@@ -226,7 +226,7 @@ int test_cursor_move_01() {
     i++;
     unsigned char buf[] = "0000\e[2;1H";
     if(!test_cursor_move_01_subtest(i, &target, &buf[0], sizeof(buf)-1, &wbuf))
-      return 0; 
+      return 0;
   }
 
   {
@@ -267,6 +267,20 @@ int test_cursor_move_01() {
   {
     i++;
     unsigned char buf[] = "0000\e[22;22H";
+    if(!test_cursor_move_01_subtest(i, &target, &buf[0], sizeof(buf)-1, &wbuf))
+      return 0;
+  }
+
+  {
+    i++;
+    unsigned char buf[] = "0000\e[H\e[K";
+    if(!test_cursor_move_01_subtest(i, &target, &buf[0], sizeof(buf)-1, &wbuf))
+      return 0;
+  }
+
+  {
+    i++;
+    unsigned char buf[] = "0000\r\n\r\n000\e[2K";
     if(!test_cursor_move_01_subtest(i, &target, &buf[0], sizeof(buf)-1, &wbuf))
       return 0;
   }

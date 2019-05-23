@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
+#include "util.h"
 #include "log.h"
 #include "term.h"
 #include "lisp.h"
@@ -62,14 +62,19 @@ struct term *close_minibuffer(struct term *target, struct term *control, struct 
   
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
 
+  // Save target if it was not the last selected terminal.  
   if(control != last) { 
-    term_set_extra(control, "\033[m"); 
-    term_select(control);
-    term_unset_extra(control);
-    //term_clear(control);
-    control->init = 0; 
+    term_save(target);
   }
 
+  // Tear down the control terminal. 
+  term_set_extra(control, "\033[m");
+  term_select(control);
+  term_clear(control);
+  term_unset_extra(control);
+  control->init = 0; 
+
+  // Select and resize the target terminal.
   term_select(target);
   term_resize(target, 1, wbuf.ws_row, wbuf.ws_col);
   term_unset_extra(target);
@@ -108,6 +113,7 @@ struct term *resize(struct term *target, struct term *control, struct term *curr
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
     bottom = wbuf.ws_row; 
 
+    // Make sure we save both terms state.
     if(target != last) { 
 
       // control is active, minibuffer open.
@@ -117,8 +123,10 @@ struct term *resize(struct term *target, struct term *control, struct term *curr
       }
       
 
+    } else {
+      term_save(target);
     }
-
+    
     term_select(target);
     term_resize(target, 1, bottom, wbuf.ws_col); 
     term_select(target);
@@ -192,7 +200,8 @@ int exoshell_main(int argc, char **argv) {
   sigpipe = signal_pipe[1];
   
   // Clear the host term. 
-  dprintf(1, "\033[2J\033[;H");
+  //dprintf(1, "\033[2J\033[;H");
+  writefds(STDOUT_FILENO, "\033[2J\033[;H");
   
   signal(SIGINT, signal_handler);
   signal(SIGWINCH, signal_handler);
@@ -302,7 +311,8 @@ int exoshell_main(int argc, char **argv) {
           last = &control;
           current = &control;
           kill(target_pid, SIGWINCH);
-          dprintf(control_pipe_in[1], "s");
+          //          dprintf(control_pipe_in[1], "s");
+          writefds(control_pipe_in[1], "s");
           
           break;
         case SIGWINCH:
