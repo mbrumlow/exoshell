@@ -222,7 +222,6 @@ void term_select(struct term *t) {
 void term_clear(struct term *t) {
 
   int row, col;
-  
   term_write(t, "\033[6n");
   read_cursor(t->host, &row, &col);
   
@@ -357,7 +356,7 @@ void term_flush(struct term *t) {
   int occr = t->check_row;
   int occc = t->check_column; 
   
-  int i,z; 
+  //  int i,z; 
   if(t->checkpoint > 0) {
     TERM_DEBUG(TERM, t, "term_flush_A: cp: %d,  top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d, ccr: %d -> %d, ccc: %d -> %d\n",
                t->checkpoint, otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column, occr, t->check_row, occc, t->check_column);
@@ -365,13 +364,9 @@ void term_flush(struct term *t) {
     /* write(t->host, &t->buf[0], t->checkpoint); */
     term_write_raw(t, (char *) &t->buf[0], t->checkpoint);
 
+    // TODO: check for errors. 
     memmove(&t->buf[0], &t->buf[t->checkpoint], t->pos - t->checkpoint);
-    
-    /* z = 0; */
-    /* for(i = t->checkpoint; i < t->pos; i++, z++) { */
-    /*   t->buf[z] = t->buf[i]; */
-    /* } */
-    
+            
     t->pos = t->pos - t->checkpoint;
     t->checkpoint = 0;
     t->check_row = t->next_row;
@@ -536,6 +531,22 @@ void filter_CUP(struct term *t) {
   checkpoint(t); // move our checkpoint up. 
 }
 
+void term_filter_ED(struct term *t) {
+
+  int row, col;
+  term_write(t, "\033[6n");
+  read_cursor(t->host, &row, &col);
+
+  rewind_esc(t);
+
+  // Only supports to terms, region erase seems to only work on xterm :/ 
+  if(t->top == 1) {
+    term_write(t, "\033[%d;%dH\033[1J\033[%d;%dH", t->bottom, 1, row, col);
+  } else { 
+    term_write(t, "\033[%d;%dH\033[0J\033[%d;%dH", t->top, 1, row, col);
+  }
+}
+
 void filter(struct term *t) {
 
   switch(t->state) {
@@ -544,7 +555,8 @@ void filter(struct term *t) {
     t->state = CASE_PRINT;
     break;
   case CASE_ED_FILTER:
-    rewind_esc(t);
+    //    rewind_esc(t);
+    term_filter_ED(t); 
     t->state = CASE_PRINT;
     // TODO remap, once we have proper cursor info.
   case CASE_LOG:
