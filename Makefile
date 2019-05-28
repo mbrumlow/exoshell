@@ -1,6 +1,6 @@
 
-INCL	= term.h term_table.h lisp.h log.h test.h util.h
-SRC	= main.c term.c lisp.c log.c test.c util.c
+INCL	= term.h term_table.h lisp.h log.h test.h util.h proto.h
+SRC	= main.c term.c lisp.c log.c test.c util.c proto.c
 OBJ	= $(SRC:.c=.o)
 LIBS	= -lpthread -lecl -lutil -lgc -lreadline
 EXE	= exoshell

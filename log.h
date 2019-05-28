@@ -11,6 +11,7 @@
 #define ESCAPE     0x000008
 #define CURSOR     0x000010
 #define TERM_WRITE 0x000020
+#define TERM_LINES 0x000040
 
 #define LOG(fmt, arg...) debug(INFO, fmt, ##arg);
 #define TRACE(flag, fmt, arg...) debug(, fmt, ##arg);

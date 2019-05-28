@@ -14,6 +14,8 @@
 
 #define TERM_DEBUG(flag, term, fmt, arg...) term_debug(flag, term, fmt, ##arg); 
 
+#define MAX_SAVE_LINES (100)
+
 void term_debug(int flag, struct term *t, char *fmt, ...) {
 
   int size = 0; 
@@ -122,7 +124,225 @@ void read_cursor(int fd, int *row, int *col) {
   }
 }
 
-// TODO: make lookup table for faster lockups.
+char *term_get_last_line(struct term *t, int n) {
+
+  int p = 0;
+     
+  TERM_DEBUG(TERM_LINES, t,
+             "term_get_last_line: n: %d, START p: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             n, p, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  
+  p = t->li.watermark - n;
+  TERM_DEBUG(TERM_LINES, t,
+             "term_get_last_line: n: %d,  ADJUST_A p: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             n, p, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+
+  
+  if(t->li.wrap && p < 0) {
+    p = MAX_SAVE_LINES + p;
+    TERM_DEBUG(TERM_LINES, t,
+               "term_get_last_line: m: %d, ADJUST_B p: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               n, p, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  }
+  
+  if(p > (MAX_SAVE_LINES-1) || p < 0) return NULL;
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_get_last_line: n: %d, END p: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             n, p, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+
+  
+  return t->lines[p].buf; 
+}
+
+int term_line_alloc(struct term *t) {
+
+  struct line *line;
+
+  
+  if(!t->lines) return 0;
+  if((t->lines + t->li.line)->buf) return 1; 
+
+  line = t->lines + t->li.line;
+  line->buf = malloc(t->columns + 1);
+  if(!line->buf) {
+    free(line); 
+    return 0; 
+  }
+
+  line->buf[0] = '\0';
+  line->size = t->columns;
+  return 1; 
+}
+
+void term_line_set(struct term *t, int diff, int col) {
+  
+  int p;
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_set: START diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  
+  p = t->li.line - diff;
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_set: ADJUST_A p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  
+  if(!t->li.wrap && p < 0) {
+    diff += p;
+    p = 0;
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_set: ADJUST_B p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  }
+
+  if(t->li.wrap && p < 0) {
+    p = MAX_SAVE_LINES + p;
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_set: ADJUST_C p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  }
+
+  
+  // Handle forward wrap. 
+  if(p >= MAX_SAVE_LINES) {
+    p = p - MAX_SAVE_LINES;
+    t->li.wrap = 1; 
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_set: ADJUST_D p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  }
+  
+  if(p >= MAX_SAVE_LINES || p < 0) return;
+
+  t->li.mark = t->li.mark - (-diff);
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_set: ADJUST_E p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+
+  if(col < 0) col = 0;
+  
+  t->li.line = p;
+  t->li.col = col;
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_set: ADJUST_D p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm :%d\n",
+             p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+
+  
+  if(t->li.mark < 0) {
+    t->li.mark = 0;
+    t->li.watermark = t->li.line;
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_set: ADJUST_F p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  }
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_set: END p: %d, diff: %d, row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             p, diff, t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+}
+
+
+void term_line_next(struct term *t) {
+
+  if(!term_line_alloc(t)) return;
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_next: START row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  
+  if(t->li.line + 1>= MAX_SAVE_LINES) {
+    t->li.wrap = 1;
+    t->li.line = 0;
+    t->li.col = 0; 
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_next: WRAP row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+    
+    
+  } else {
+    t->li.line++; 
+    t->li.col = 0;
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_next: LINE++ row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+  }
+
+  if(t->li.mark) {
+    t->li.mark--;
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_next: DEC row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+    
+  } else {
+    t->li.watermark = t->li.line; 
+
+    TERM_DEBUG(TERM_LINES, t,
+               "term_line_next: PUSH row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+               t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+
+  }
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_next: END row: %d, column: %d, li.line: %d, li.col: %d, li.mark: %d, li.wm: %d\n",
+             t->next_row, t->next_column, t->li.line, t->li.col, t->li.mark, t->li.watermark);
+}
+
+void term_line_dec(struct term *t) {
+  
+  struct line *line;
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_dec: START row: %d, column: %d, li.line: %d, li.col: %d\n",
+             t->next_row, t->next_column, t->li.line, t->li.col);
+  
+  if(t->li.col ==  0) return; 
+  if(!term_line_alloc(t)) return; 
+  
+  line = t->lines + t->li.line;
+  t->li.col--;
+  line->buf[t->li.col] = '\0';
+
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_dec: END row: %d, column: %d, li.line: %d, li.col: %d\n",
+             t->next_row, t->next_column, t->li.line, t->li.col);
+  
+}
+
+
+void term_line_cr(struct term *t) {
+  t->li.col = 0; 
+  TERM_DEBUG(TERM_LINES, t,
+             "term_line_cr: row: %d, column: %d, li.line: %d, li.col: %d\n",
+             t->next_row, t->next_column, t->li.line, t->li.col);
+}
+
+void term_line_add(struct term *t, char c) {
+
+  struct line *line;
+
+  if(!term_line_alloc(t)) return; 
+
+  line = t->lines + t->li.line;
+
+  // TODO: handle resizing line. 
+  if(t->li.col >= line->size) return; 
+
+  line->buf[t->li.col++] = c;
+  line->buf[t->li.col] = '\0'; 
+  
+}
+
 int last_esc(struct term *t) {
   
   int pos = t->pos - 1;
@@ -238,7 +458,7 @@ static inline void debug_esc(struct term *t) {
   int pos, size; 
   char *p = NULL;
   
-  if(t->state != CASE_PRINT) return;
+  //  if(t->state != CASE_PRINT) return;
 
   pos = last_esc(t);
   if(pos < 0) return;
@@ -356,12 +576,10 @@ void term_flush(struct term *t) {
   int occr = t->check_row;
   int occc = t->check_column; 
   
-  //  int i,z; 
   if(t->checkpoint > 0) {
     TERM_DEBUG(TERM, t, "term_flush_A: cp: %d,  top: %d -> %d, bot: %d -> %d, cr: %d -> %d, cc: %d -> %d, ccr: %d -> %d, ccc: %d -> %d\n",
                t->checkpoint, otop, t->top, obot, t->bottom, ocr, t->cursor_row, occ, t->cursor_column, occr, t->check_row, occc, t->check_column);
 
-    /* write(t->host, &t->buf[0], t->checkpoint); */
     term_write_raw(t, (char *) &t->buf[0], t->checkpoint);
 
     // TODO: check for errors. 
@@ -429,13 +647,15 @@ int update(struct term *t, unsigned char c) {
     
     switch(c) {
     case 0x8: // BS
-      term_bs(t); 
+      term_bs(t);
+      term_line_dec(t); 
       t->state = CASE_PRINT;
       update_state_buf(t, c);
       return 1; 
       
     case 0xa: // LF
     case 0xb: // VT
+      term_line_next(t);
       term_lfvt(t); 
       t->state = CASE_PRINT;
       update_state_buf(t, c);
@@ -448,7 +668,8 @@ int update(struct term *t, unsigned char c) {
       return 1; 
       
     case 0xd: // CR
-      term_cr(t); 
+      term_cr(t);
+      term_line_cr(t); 
       t->state = CASE_PRINT;
       update_state_buf(t, c);
       return 1; 
@@ -483,8 +704,84 @@ int update(struct term *t, unsigned char c) {
   t->state = CASE_PRINT;
   term_cursor_next(t); 
   update_state_buf(t, c);
+  term_line_add(t, c); 
   return 0; 
 }
+
+int parse_CXX_Param(struct term *t, char stop, int *param) {
+
+  int pos = last_esc(t);
+  
+  for(; pos < t->pos; pos++) {
+    if(t->buf[pos] == stop) break;
+    if(t->buf[pos] == '?') continue; 
+    // probably should log this? 
+    if(!(t->buf[pos] >= '0' && t->buf[pos] <= '9')) return 0;
+    *param = *param * 10 + (t->buf[pos] - 48);
+  }  
+
+  return 1; 
+}
+
+void filter_CUU(struct term *t) {
+  
+  int param = 0;
+  int saved_row;
+  
+  if(!parse_CXX_Param(t, 'A', &param)) return;
+  
+  saved_row = t->next_row; 
+  t->next_row -= param;
+
+  if(t->next_row < t->top) t->next_row = t->top; 
+  if(t->next_row > t->bottom) t->next_row = t->bottom;
+
+  // Update line. 
+  term_line_set(t, saved_row - t->next_row, t->next_column); 
+}
+
+void filter_CUD(struct term *t) {
+  
+  int param = 0;
+  int saved_row;
+  
+  if(!parse_CXX_Param(t, 'B', &param)) return;
+  
+  saved_row = t->next_row; 
+  t->next_row += param;
+
+  if(t->next_row < t->top) t->next_row = t->top; 
+  if(t->next_row > t->bottom) t->next_row = t->bottom;
+
+  // Update line. 
+  term_line_set(t, saved_row - t->next_row, t->next_column); 
+}
+
+void filter_EL(struct term *t) {
+
+  int col;
+  int param = 0;
+  struct line *line;
+  
+  if(!parse_CXX_Param(t, 'K', &param)) return;
+
+  if(!term_line_alloc(t)) return;
+
+  line = t->lines + t->li.line;
+  
+  switch(param) {
+  case 0:
+    line->buf[t->li.col] = '\0';
+  case 1:
+    for(col = 0; col < t->li.col; col++) {
+      line->buf[col] = ' '; 
+    }
+  case 2:
+    line->buf[col] = '\0'; 
+  }
+
+}
+
 
 void filter_CUP(struct term *t) {
 
@@ -492,7 +789,8 @@ void filter_CUP(struct term *t) {
   int row = 0;
   int col = 0;
   int *cur = &row;
-
+  int saved_row;
+  
   // CSI P s ; P s H
   pos++; // moves to -> or first parameter. 
   for(; pos < t->pos; pos++) {
@@ -516,7 +814,8 @@ void filter_CUP(struct term *t) {
   if(row < t->top) row = t->top; 
   if(row > t->bottom) row = t->bottom;
   if(col> t->columns) col = t->columns;
-  
+
+  saved_row  = t->next_row; 
   t->next_row = row;
   t->next_column = col;
   t->needs_wrap = 0; 
@@ -528,7 +827,10 @@ void filter_CUP(struct term *t) {
   int len = sprintf((char *)&t->buf[t->pos], "\e[%d;%dH", row, col);
   t->pos += len;
   
-  checkpoint(t); // move our checkpoint up. 
+  checkpoint(t); // move our checkpoint up.
+
+  //  term_line_set(t, row-1, col-1);
+  term_line_set(t, saved_row - row, col-1); 
 }
 
 void term_filter_ED(struct term *t) {
@@ -550,6 +852,14 @@ void term_filter_ED(struct term *t) {
 void filter(struct term *t) {
 
   switch(t->state) {
+  case CSI_CUU_FILTER:
+    filter_CUU(t);
+    t->state = CASE_PRINT;
+    break;
+  case CSI_CUD_FILTER:
+    filter_CUD(t);
+    t->state = CASE_PRINT;
+    break;
   case CSI_CUP_FILTER:
     filter_CUP(t);
     t->state = CASE_PRINT;
@@ -559,6 +869,9 @@ void filter(struct term *t) {
     term_filter_ED(t); 
     t->state = CASE_PRINT;
     // TODO remap, once we have proper cursor info.
+  case CASE_EL_FITLER:
+    filter_EL(t);
+    t->state = CASE_PRINT; 
   case CASE_LOG:
     t->state = CASE_PRINT;
     break; 
@@ -656,8 +969,9 @@ void term_init(struct term *t, int top, int bottom, int columns, int host, int p
   wbuf.ws_col = columns;
   ioctl(pty, TIOCSWINSZ, &wbuf);
 
-  /* term_debug(t, "term_init: top: %d, bottom: %d, crow: %d, ccol: %d || nrow: %d, ncol: %d\n", */
-  /*            t->top, t->bottom, t->cursor_row, t->cursor_column, */
-  /*            t->next_row, t->next_column); */
+  memset(&t->li, 0, sizeof(t->li)); 
+  
+  t->lines = malloc(sizeof(struct line) * MAX_SAVE_LINES); 
+  memset(t->lines, 0, sizeof(struct line) * MAX_SAVE_LINES); 
 
 }

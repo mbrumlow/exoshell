@@ -7,8 +7,11 @@
 #define CASE_7BIT 2
 #define CASE_OSC 3
 #define CASE_CSI 4
-#define CSI_CUP_FILTER 6
-#define CASE_ED_FILTER 5
+#define CSI_CUU_FILTER 5
+#define CSI_CUD_FILTER 6
+#define CSI_CUP_FILTER 7
+#define CASE_ED_FILTER 8
+#define CASE_EL_FITLER 9
 
 #define CASE_LOG 254
 #define CASE_TODO 255
@@ -600,8 +603,8 @@ static const char csi_table[] = {
   CASE_CSI, // 62
   CASE_CSI, // 63
   CASE_PRINT, // 64 @ 
-  CASE_PRINT, // 65 A
-  CASE_PRINT, // 66 B
+  CSI_CUU_FILTER, // 65 A
+  CSI_CUD_FILTER, // 66 B
   CASE_PRINT, // 67 C
   CASE_PRINT, // 68 D
   CASE_PRINT, // 69 E
@@ -610,7 +613,7 @@ static const char csi_table[] = {
   CSI_CUP_FILTER, // 72 H 
   CASE_PRINT, // 73 I
   CASE_ED_FILTER, // 74 J 
-  CASE_PRINT, // 75 K 
+  CASE_EL_FITLER, // 75 K 
   CASE_PRINT, // 76 L
   CASE_PRINT, // 77 M
   CASE_CSI, // 78 

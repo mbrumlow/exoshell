@@ -2,6 +2,19 @@
 #ifndef EXOTERM_TERM_H
 #define EXOTERM_TERM_H
 
+struct line {
+  int size;
+  char *buf;
+};
+
+struct line_info {
+  int line;
+  int col;
+  int wrap; 
+  int mark;
+  int watermark;
+};
+
 // Inner terminal state. 
 struct term {
   int id;
@@ -16,9 +29,21 @@ struct term {
   int columns;                   // terminal width.
   int pty;                       // terminal pty.
   int host;                      // host terminal pty.
-  int checkpoint;
-  char *extra;                   // extra codes to send when selecting. 
-  unsigned char buf[4096];       // output buffer. 
+  int checkpoint;                // The last safe spot to flush to the terminal.
+  char *extra;                   // extra codes to send when selecting.
+
+  
+  /* int  line;                     // Line we are working on. */
+  /* int  diff;  */
+  /* int  linen;  */
+  /* int  linep; */
+  /* int  linew;  */
+  
+  struct line *lines;
+
+  struct line_info li; 
+  unsigned char buf[4096];       // output buffer.
+  
 };
 
 void read_cursor(int fd, int *row, int *col);
@@ -33,5 +58,7 @@ void term_set_extra(struct term *t, const char *buf);
 void term_unset_extra(struct term *t);
 void term_save_cursor(struct term *t);
 void term_flush(struct term *t); 
-  
+char *term_get_last_line(struct term *t, int n);
+
+
 #endif // EXOTERM_TERM_H

@@ -289,6 +289,122 @@ int test_cursor_move_01() {
   return 1;
 }
 
+int test_lines_01_subtest(int n) {
+
+  int max = 100; 
+  int i = 0;
+  struct term target;
+  struct winsize wbuf;
+  char line[4096];
+  
+  clear();
+  
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
+  term_init(&target, 1, wbuf.ws_row, wbuf.ws_col, STDIN_FILENO, STDOUT_FILENO);
+
+  for(i = 0; i < n; i++) {
+    sprintf(&line[0], "This is line %d\r\n", i);
+    term_update(&target, (unsigned char *) &line[0], strlen(&line[0]));
+  }
+
+  term_flush(&target);
+
+  if(n < max) max = n; // TODO: fix me, max saved lines is 100. 
+  for(i = 0; i < max ; i++) { 
+    sprintf(&line[0], "This is line %d", n-(i+1));
+    char *s = term_get_last_line(&target, i+1);
+    if(strcmp(s, &line[0]) != 0){
+      printf("\nn=%d, test: %d: get: %d, expected '%s' but got '%s'\n", n, i, i+1,  &line[0], s);
+      printf("line: %d, watermark: %d, mark: %d, wrap: %d, next_row: %d\n",
+             target.li.line, target.li.watermark, target.li.mark, target.li.wrap, target.next_row);
+      return 0; 
+    }
+  }
+
+
+  return 1;
+}
+
+int test_lines_01() {
+
+  int i;
+  for(i = 0; i < 1000; i++) {
+    if(!test_lines_01_subtest(i)) return 0; 
+  }
+  return 1; 
+
+}
+
+int test_lines_02_subtest(int n) {
+
+  int max; 
+  int i,j;
+  struct term target;
+  struct winsize wbuf;
+  char line[4096];
+  
+  clear();
+  
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
+  term_init(&target, 1, wbuf.ws_row, wbuf.ws_col, STDIN_FILENO, STDOUT_FILENO);
+
+  max = wbuf.ws_row - 1; 
+  
+  for(i = 0; i < n; i++) {
+    sprintf(&line[0], "%d ###################\r\n", i);
+    term_update(&target, (unsigned char *) &line[0], strlen(&line[0]));
+  }
+
+  // move to 1;1
+  sprintf(&line[0], "\e[1;1H");
+  term_update(&target, (unsigned char *) &line[0], strlen(&line[0]));
+
+  if(n < max) max = n; 
+  for(j = 0; j < max; j++) {
+    sprintf(&line[0], "\e[?2KThis is line %d\r\n", j);
+    term_update(&target, (unsigned char *) &line[0], strlen(&line[0]));
+
+
+
+    for(i = 0; i < max ; i++) {
+
+      if(i >= (max - j) -1 ) {
+        sprintf(&line[0], "This is line %d", max-(i+1));      
+      } else{
+        sprintf(&line[0], "%d ###################", n-(i+1));      
+      }
+      
+      char *s = term_get_last_line(&target, i+1);
+      if(strcmp(s, &line[0]) != 0){
+        printf( "\e[%d;1H", wbuf.ws_row - 10);
+        printf("\nn=%d, test: %d: get: %d, j: %d, max: %d, expected '%s' but got '%s'\n", n, i, i+1, j, max,  &line[0], s);
+        printf("line: %d, watermark: %d, mark: %d, wrap: %d, next_row: %d\n",
+               target.li.line, target.li.watermark, target.li.mark, target.li.wrap, target.next_row);
+        return 0; 
+      }
+    }
+    
+  }
+
+  term_flush(&target);
+
+  
+
+
+  return 1;
+}
+
+
+int test_lines_02() {
+
+  int i;
+
+  for(i = 0; i < 1000; i++) {
+    if(!test_lines_02_subtest(i)) return 0;
+  }
+  
+  return 1; 
+}
 
 int test_run() {
 
@@ -306,6 +422,8 @@ int test_run() {
   if(pass && !test_cursor_wrap_03()) pass = 0;
   if(pass && !test_cursor_wrap_04()) pass = 0;
   if(pass && !test_cursor_move_01()) pass = 0;
+  if(pass && !test_lines_01()) pass = 0;
+  if(pass && !test_lines_02()) pass = 0;
   
   // Put the term back to working order.
   // Hey, maybe we should save the flags before we change them? 

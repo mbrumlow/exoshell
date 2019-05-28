@@ -58,7 +58,12 @@ int log_set_flag(char *flag, int len) {
     debug(INFO, "+debug: term_write\n");
     flags |= TERM_WRITE;
   }
-    
+
+  if(log_check_flag(flag, "term_lines", len)){
+    debug(INFO, "+debug: term_lines\n");
+    flags |= TERM_LINES;
+  }
+  
   return 1; 
 }
 

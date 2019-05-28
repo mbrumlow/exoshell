@@ -19,6 +19,7 @@
 #include "term.h"
 #include "lisp.h"
 #include "test.h"
+#include "proto.h"
 
 struct tstate {
   int state;
@@ -165,8 +166,6 @@ int exoshell_main(int argc, char **argv) {
   target.init = 0;
   control.init = 0; 
 
-  log_init(argc, argv); 
-
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
   
   target_pid = forkpty(&target_pty, NULL, NULL, &wbuf); 
@@ -187,8 +186,8 @@ int exoshell_main(int argc, char **argv) {
     close(control_pipe_in[1]);
     close(control_pipe_out[0]);
 
-    exoshell(argc, argv, control_pipe_in[0], control_pipe_out[1], target_pty); 
-     _exit(0);
+    int ret = exoshell(argc, argv, control_pipe_in[0], control_pipe_out[1], target_pty); 
+     _exit(ret);
   }
   
   // Initialize target terminal. 
@@ -311,8 +310,7 @@ int exoshell_main(int argc, char **argv) {
           last = &control;
           current = &control;
           kill(target_pid, SIGWINCH);
-          //          dprintf(control_pipe_in[1], "s");
-          writefds(control_pipe_in[1], "s");
+          proto_send_req(control_pipe_in[1], PROTO_SHELL_START);
           
           break;
         case SIGWINCH:
@@ -330,15 +328,35 @@ int exoshell_main(int argc, char **argv) {
     }
     
     if(FD_ISSET(control_pipe_out[0], &readfds)) {
-      char c;
-      read(control_pipe_out[0], &c, 1);
-      switch(c) {
-      case 'c':
-
+      uint32_t n; 
+      uint32_t req = proto_read_req(control_pipe_out[0]); 
+      switch(req){
+      case PROTO_SHELL_END:
         last = close_minibuffer(&target, &control, current, last);
         kill(target_pid, SIGWINCH);
         current = &target;
+        break;
+
+      case PROTO_REQ_LINE:
+
+        n = proto_read_req(control_pipe_out[0]);
+        debug(INFO, "REQ LINE FOR %d\n", n); 
+
+        char *l = term_get_last_line(&target, n); 
+        if(l) {
+           proto_send_string(control_pipe_in[1], l, strlen(l));
+        } else {
+          proto_send_eof(control_pipe_in[1]);
+        }
+
+        break; 
         
+      case PROTO_ERROR:
+        debug(INFO, "IPC error\n");
+        break;
+
+      default:
+        debug(INFO, "IPC unknown: %d\n", req);
         break;
       }
     }
@@ -371,6 +389,9 @@ int exoshell_test(int argc, char **argv) {
 int main(int argc, char **argv) {
 
   int i; 
+
+  log_init(argc, argv); 
+  
   for(i = 0; i < argc; i++) {
     if(strcmp(argv[i], "-test") == 0) {
       return exoshell_test(argc, argv); 
