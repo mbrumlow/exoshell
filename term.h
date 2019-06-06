@@ -2,9 +2,12 @@
 #ifndef EXOTERM_TERM_H
 #define EXOTERM_TERM_H
 
+#include <stdint.h>
+
 struct line {
   int size;
   char *buf;
+  uint64_t *sgr; 
 };
 
 struct line_info {
@@ -31,17 +34,11 @@ struct term {
   int host;                      // host terminal pty.
   int checkpoint;                // The last safe spot to flush to the terminal.
   char *extra;                   // extra codes to send when selecting.
-
-  
-  /* int  line;                     // Line we are working on. */
-  /* int  diff;  */
-  /* int  linen;  */
-  /* int  linep; */
-  /* int  linew;  */
-  
+  uint64_t sgr; 
   struct line *lines;
-
-  struct line_info li; 
+  struct line_info li;
+  int *host_decset_low; 
+  int decset_low[34]; 
   unsigned char buf[4096];       // output buffer.
   
 };

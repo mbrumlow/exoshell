@@ -84,25 +84,31 @@ struct term *close_minibuffer(struct term *target, struct term *control, struct 
   
 }
 
-void open_minibuffer(struct term *target, struct term *control, int control_pty, int size) {
+void open_minibuffer(int decset_low[], struct term *target, struct term *control, int control_pty, int size) {
     
     struct winsize wbuf;
+    int bottom;
     
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
-
+    bottom = wbuf.ws_row-size; 
+    
     // Prep top terminal.
-    term_resize(target, 1, wbuf.ws_row - size, wbuf.ws_col); 
-    term_set_extra(target, "\033[m");
+    term_resize(target, 1, bottom, wbuf.ws_col); 
+    term_set_extra(target, "\033[?47h\033[m");
     term_save(target); 
     
     // Initialize bottom terminal.
-    term_init(control, wbuf.ws_row-size+2, wbuf.ws_row, wbuf.ws_col,
+    term_init(control, bottom + 2, wbuf.ws_row, wbuf.ws_col,
               STDIN_FILENO, control_pty);
-    control->id = 2; 
-    term_set_extra(control, "\033[32m\033[40m\033[1m");  
+    control->id = 2;
+    control->host_decset_low = decset_low;
+
+    term_set_extra(control, "\033[?47l\033[32m\033[49m\033[1m");  
 
     term_select(control);
+    writefdf(STDOUT_FILENO, "\033[40m\033[%d;%dH\033[K\033[32m\033[49m\033[1m", bottom+1, 1);
     term_clear(control); 
+    term_resize(control, bottom+2, wbuf.ws_row, wbuf.ws_col);
 
 }
 
@@ -136,6 +142,7 @@ struct term *resize(struct term *target, struct term *control, struct term *curr
       return target;
 
     term_select(control);
+    writefdf(STDOUT_FILENO, "\033[40m\033[%d;%dH\033[K\033[32m\033[49m\033[1m", bottom+1, 1);
     term_resize(control, bottom+2, wbuf.ws_row, wbuf.ws_col); 
     term_select(control);
 
@@ -152,7 +159,9 @@ int exoshell_main(int argc, char **argv) {
   int control_pty; 
   int signal_pipe[2];
   int control_pipe_in[2];
-  int control_pipe_out[2]; 
+  int control_pipe_out[2];
+  int data_pipe_in[2];
+  int data_pipe_out[2];
   fd_set readfds;
   sigset_t sigmask;
   struct winsize wbuf;
@@ -161,11 +170,14 @@ int exoshell_main(int argc, char **argv) {
   struct term control; 
   struct term *last = NULL;
   struct term *current = NULL;
+  int decset_low[34]; 
   unsigned char input[4096], output[4096];
   
   target.init = 0;
   control.init = 0; 
 
+  memset(decset_low, 0, sizeof(decset_low)); 
+  
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &wbuf);
   
   target_pid = forkpty(&target_pty, NULL, NULL, &wbuf); 
@@ -179,20 +191,28 @@ int exoshell_main(int argc, char **argv) {
 
   pipe(control_pipe_in);
   pipe(control_pipe_out);
-
+  pipe(data_pipe_out);
+  pipe(data_pipe_in);
+    
   control_pid = forkpty(&control_pty, NULL, NULL, &wbuf);
   if(!control_pid) { // child
 
     close(control_pipe_in[1]);
     close(control_pipe_out[0]);
+    close(data_pipe_in[1]);
+    close(data_pipe_out[0]);
 
-    int ret = exoshell(argc, argv, control_pipe_in[0], control_pipe_out[1], target_pty); 
+    int ret = exoshell(argc, argv,
+                       control_pipe_in[0], control_pipe_out[1],
+                       data_pipe_in[0], data_pipe_out[1],
+                       target_pty); 
      _exit(ret);
   }
   
   // Initialize target terminal. 
   term_init(&target, 1, wbuf.ws_row, wbuf.ws_col, STDIN_FILENO, target_pty);
   target.id = 1;
+  target.host_decset_low = decset_low;
   
   // Set up pipe based signal handler. 
   pipe(signal_pipe);
@@ -218,6 +238,7 @@ int exoshell_main(int argc, char **argv) {
   if(max < control_pty) max = control_pty;
   if(max < signal_pipe[0]) max = signal_pipe[0];
   if(max < control_pipe_out[0]) max = control_pipe_out[0];
+  if(max < data_pipe_out[0]) max = data_pipe_out[0];
 
   current = &target;
 
@@ -230,6 +251,7 @@ int exoshell_main(int argc, char **argv) {
     FD_SET(control_pty, &readfds);
     FD_SET(signal_pipe[0], &readfds);
     FD_SET(control_pipe_out[0], &readfds);
+    FD_SET(data_pipe_out[0], &readfds);
 
     int rc = pselect(max+1, &readfds, NULL, NULL, NULL, &sigmask);
     if( rc == -1 ) {
@@ -306,7 +328,7 @@ int exoshell_main(int argc, char **argv) {
             last = &target;
           }
           
-          open_minibuffer(&target, &control, control_pty, 12); 
+          open_minibuffer(&decset_low[0], &target, &control, control_pty, 12); 
           last = &control;
           current = &control;
           kill(target_pid, SIGWINCH);
@@ -326,10 +348,29 @@ int exoshell_main(int argc, char **argv) {
         break;
       }
     }
-    
+
     if(FD_ISSET(control_pipe_out[0], &readfds)) {
-      uint32_t n; 
       uint32_t req = proto_read_req(control_pipe_out[0]); 
+      switch(req){
+      case PROTO_SHELL_END:
+        last = close_minibuffer(&target, &control, current, last);
+        kill(target_pid, SIGWINCH);
+        current = &target;
+        break;
+        
+      case PROTO_ERROR:
+        debug(INFO, "IPC error\n");
+        break;
+
+      default:
+        debug(INFO, "IPC unknown: %d\n", req);
+        break;
+      }
+    }
+    
+    if(FD_ISSET(data_pipe_out[0], &readfds)) {
+      uint32_t n; 
+      uint32_t req = proto_read_req(data_pipe_out[0]); 
       switch(req){
       case PROTO_SHELL_END:
         last = close_minibuffer(&target, &control, current, last);
@@ -339,14 +380,12 @@ int exoshell_main(int argc, char **argv) {
 
       case PROTO_REQ_LINE:
 
-        n = proto_read_req(control_pipe_out[0]);
-        debug(INFO, "REQ LINE FOR %d\n", n); 
-
+        n = proto_read_req(data_pipe_out[0]);
         char *l = term_get_last_line(&target, n); 
         if(l) {
-           proto_send_string(control_pipe_in[1], l, strlen(l));
+           proto_send_string(data_pipe_in[1], l, strlen(l));
         } else {
-          proto_send_eof(control_pipe_in[1]);
+          proto_send_eof(data_pipe_in[1]);
         }
 
         break; 

@@ -4,14 +4,16 @@
 
 #include <stdint.h>
 
-#define INFO       0x000000
-#define FIXME      0x000001
-#define TERM       0x000002
-#define UPDATE     0x000004
-#define ESCAPE     0x000008
-#define CURSOR     0x000010
-#define TERM_WRITE 0x000020
-#define TERM_LINES 0x000040
+#define INFO        0x000000
+#define FIXME       0x000001
+#define TERM        0x000002
+#define UPDATE      0x000004
+#define ESCAPE      0x000008
+#define CURSOR      0x000010
+#define TERM_WRITE  0x000020
+#define TERM_LINES  0x000040
+#define TERM_DECSET 0x000080
+#define TERM_SGR    0x000100
 
 #define LOG(fmt, arg...) debug(INFO, fmt, ##arg);
 #define TRACE(flag, fmt, arg...) debug(, fmt, ##arg);

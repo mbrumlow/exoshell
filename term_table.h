@@ -12,6 +12,8 @@
 #define CSI_CUP_FILTER 7
 #define CASE_ED_FILTER 8
 #define CASE_EL_FITLER 9
+#define CASE_DECSET_FILTER 10
+#define CASE_SGR_FILTER 11
 
 #define CASE_LOG 254
 #define CASE_TODO 255
@@ -388,7 +390,7 @@ static const char esc_table[] = {
   CASE_PRINT, // 106
   CASE_PRINT, // 107
   CASE_PRINT, // 108
-  CASE_PRINT, // 109
+  CASE_PRINT, // 109 
   CASE_PRINT, // 110
   CASE_PRINT, // 111
   CASE_PRINT, // 112
@@ -642,12 +644,12 @@ static const char csi_table[] = {
   CASE_CSI, // 101 
   CASE_PRINT, // 102 f
   CASE_PRINT, // 103 g
-  CASE_PRINT, // 104 h
+  CASE_DECSET_FILTER, // 104 h
   CASE_PRINT, // 105 i
   CASE_CSI, // 106
   CASE_CSI, // 107
-  CASE_LOG, // 108 l
-  CASE_PRINT, // 109 m
+  CASE_DECSET_FILTER, // 108 l
+  CASE_SGR_FILTER, // 109 m
   CASE_PRINT, // 110 n
   CASE_CSI, // 111 
   CASE_PRINT, // 112 p
@@ -795,5 +797,187 @@ static const char csi_table[] = {
   CASE_CSI, // 254
   CASE_CSI, // 255
 }; 
-  
+
+#define DECSET_MAX 67
+
+#define DECSET_UNUSED 0
+
+#define DECSET_DECCKM 1
+#define DECSET_DECANM 2
+#define DECSET_DECCOLM 3
+#define DECSET_DECSCLM 4
+#define DECSET_DECSCNM 5
+#define DECSET_DECOM 6
+#define DECSET_DECAWM 7
+#define DECSET_DECARM 8
+/* P s = 9 → Don’t Send Mouse X & Y on button press */
+/* P s = 1 0 → Hide toolbar (rxvt) */
+/* P s = 1 2 → Stop Blinking Cursor (att610) */
+#define DECSET_DECPFF 12
+#define DECSET_DECPEX 13
+#define DECSET_DECTCEM 14
+/* P s = 3 0 → Don’t show scrollbar (rxvt). */
+/* P s = 3 5 → Disable font-shifting functions (rxvt). */
+/* P s = 4 0 → Disallow 80 → 132 Mode */
+/* P s = 4 1 → No more(1) fix (see curses resource) */
+#define DECSET_DECNRCM 19
+/* P s = 4 4 → Turn Off Margin Bell */
+/* P s = 4 5 → No Reverse-wraparound Mode */
+/* P s = 4 6 → Stop Logging (normally disabled by a compile-time option) */
+/* P s = 4 7 → Use Normal Screen Buffer */
+#define DECSET_DECNKM 24
+#define DECSET_DECBKM 25
+/* P s = 1 0 0 0 → Don’t Send Mouse X & Y on button press and release. See the section Mouse Tracking. */
+/* P s = 1 0 0 1 → Don’t Use Hilite Mouse Tracking */
+/* P s = 1 0 0 2 → Don’t Use Cell Motion Mouse Tracking */
+/* P s = 1 0 0 3 → Don’t Use All Motion Mouse Tracking */
+/* P s = 1 0 1 0 → Don’t scroll to bottom on tty output (rxvt). */
+/* P s = 1 0 1 1 → Don’t scroll to bottom on key press (rxvt). */
+/* P s = 1 0 3 5 → Disable special modifiers for Alt and NumLock keys. */
+/* P s = 1 0 3 6 → Don’t send ESC when Meta modifies a key (disables the metaSendsEscape  */
+
+static const int decset_low_table[] = {
+  DECSET_UNUSED, // 0
+  DECSET_DECCKM, // 1
+  DECSET_DECANM, // 2
+  DECSET_DECCOLM, // 3
+  DECSET_DECSCLM, // 4
+  DECSET_DECSCNM, // 5
+  DECSET_DECOM, // 6
+  DECSET_DECAWM, // 7
+  DECSET_DECARM, // 8
+  DECSET_UNUSED, // 9
+  DECSET_UNUSED, // 10
+  DECSET_UNUSED, // 11
+  DECSET_UNUSED, // 12
+  DECSET_UNUSED, // 13
+  DECSET_UNUSED, // 14
+  DECSET_UNUSED, // 15
+  DECSET_UNUSED, // 16
+  DECSET_UNUSED, // 17
+  DECSET_DECPFF, // 18
+  DECSET_DECPEX, // 19
+  DECSET_UNUSED, // 20
+  DECSET_UNUSED, // 21
+  DECSET_UNUSED, // 22
+  DECSET_UNUSED, // 23
+  DECSET_UNUSED, // 24
+  DECSET_DECTCEM, // 25
+  DECSET_UNUSED, // 26
+  DECSET_UNUSED, // 27
+  DECSET_UNUSED, // 28
+  DECSET_UNUSED, // 29
+  DECSET_UNUSED, // 30
+  DECSET_UNUSED, // 31
+  DECSET_UNUSED, // 32
+  DECSET_UNUSED, // 33
+  DECSET_UNUSED, // 34
+  DECSET_UNUSED, // 35
+  DECSET_UNUSED, // 36
+  DECSET_UNUSED, // 37
+  DECSET_UNUSED, // 38
+  DECSET_UNUSED, // 39
+  DECSET_UNUSED, // 40
+  DECSET_UNUSED, // 41
+  DECSET_DECNRCM, // 42
+  DECSET_UNUSED, // 43
+  DECSET_UNUSED, // 44
+  DECSET_UNUSED, // 45
+  DECSET_UNUSED, // 46
+  DECSET_UNUSED, // 47
+  DECSET_UNUSED, // 48
+  DECSET_UNUSED, // 49
+  DECSET_UNUSED, // 50
+  DECSET_UNUSED, // 51
+  DECSET_UNUSED, // 52
+  DECSET_UNUSED, // 53
+  DECSET_UNUSED, // 54
+  DECSET_UNUSED, // 55
+  DECSET_UNUSED, // 56
+  DECSET_UNUSED, // 57
+  DECSET_UNUSED, // 58
+  DECSET_UNUSED, // 59
+  DECSET_UNUSED, // 60
+  DECSET_UNUSED, // 61
+  DECSET_UNUSED, // 62
+  DECSET_UNUSED, // 63
+  DECSET_UNUSED, // 64
+  DECSET_UNUSED, // 65
+  DECSET_DECNKM, // 66
+  DECSET_DECBKM, // 67
+};
+
+static const int decset_high_table[] = {
+  DECSET_UNUSED, // 0
+  DECSET_UNUSED, // 1
+  DECSET_UNUSED, // 2
+  DECSET_UNUSED, // 3
+  DECSET_UNUSED, // 4
+  DECSET_UNUSED, // 5
+  DECSET_UNUSED, // 6
+  DECSET_UNUSED, // 7
+  DECSET_UNUSED, // 8
+  DECSET_UNUSED, // 9
+  DECSET_UNUSED, // 10
+  DECSET_UNUSED, // 11
+  DECSET_UNUSED, // 12
+  DECSET_UNUSED, // 13
+  DECSET_UNUSED, // 14
+  DECSET_UNUSED, // 15
+  DECSET_UNUSED, // 16
+  DECSET_UNUSED, // 17
+  DECSET_UNUSED, // 18
+  DECSET_UNUSED, // 19
+  DECSET_UNUSED, // 20
+  DECSET_UNUSED, // 21
+  DECSET_UNUSED, // 22
+  DECSET_UNUSED, // 23
+  DECSET_UNUSED, // 24
+  DECSET_UNUSED, // 25
+  DECSET_UNUSED, // 26
+  DECSET_UNUSED, // 27
+  DECSET_UNUSED, // 28
+  DECSET_UNUSED, // 29
+  DECSET_UNUSED, // 30
+  DECSET_UNUSED, // 31
+  DECSET_UNUSED, // 32
+  DECSET_UNUSED, // 33
+  DECSET_UNUSED, // 34
+  DECSET_UNUSED, // 35
+  DECSET_UNUSED, // 36
+  DECSET_UNUSED, // 37
+  DECSET_UNUSED, // 38
+  DECSET_UNUSED, // 39
+  DECSET_UNUSED, // 40
+  DECSET_UNUSED, // 41
+  DECSET_UNUSED, // 42
+  DECSET_UNUSED, // 43
+  DECSET_UNUSED, // 44
+  DECSET_UNUSED, // 45
+  DECSET_UNUSED, // 46
+  DECSET_UNUSED, // 47
+  DECSET_UNUSED, // 48
+  DECSET_UNUSED, // 49
+  DECSET_UNUSED, // 50
+  DECSET_UNUSED, // 51
+  DECSET_UNUSED, // 52
+  DECSET_UNUSED, // 53
+  DECSET_UNUSED, // 54
+  DECSET_UNUSED, // 55
+  DECSET_UNUSED, // 56
+  DECSET_UNUSED, // 57
+  DECSET_UNUSED, // 58
+  DECSET_UNUSED, // 59
+  DECSET_UNUSED, // 60
+  DECSET_UNUSED, // 61
+  DECSET_UNUSED, // 62
+  DECSET_UNUSED, // 63
+  DECSET_UNUSED, // 64
+  DECSET_UNUSED, // 65
+  DECSET_UNUSED, // 66
+  DECSET_UNUSED, // 67
+};
+
+
+
 #endif // EXOTERM_TERM_TABLE_H

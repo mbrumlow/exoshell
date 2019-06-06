@@ -32,39 +32,58 @@ int log_set_flag(char *flag, int len) {
   if(log_check_flag(flag, "fixme", len)){
     debug(INFO, "+debug: fixme\n");
     flags |= FIXME;
+    return 1;
   }
 
   if(log_check_flag(flag, "term", len)){
     debug(INFO, "+debug: term\n");
     flags |= TERM;
+    return 1;
   }
 
   if(log_check_flag(flag, "escape", len)){
     debug(INFO, "+debug: escape\n");
     flags |= ESCAPE;
+    return 1;
   }
   
   if(log_check_flag(flag, "update", len)){
     debug(INFO, "+debug: update\n");
     flags |= UPDATE;
+    return 1;
   }
   
   if(log_check_flag(flag, "cursor", len)){
     debug(INFO, "+debug: cursor\n");
     flags |= CURSOR;
+    return 1;
   }
 
   if(log_check_flag(flag, "term_write", len)){
     debug(INFO, "+debug: term_write\n");
     flags |= TERM_WRITE;
+    return 1;
   }
 
   if(log_check_flag(flag, "term_lines", len)){
     debug(INFO, "+debug: term_lines\n");
     flags |= TERM_LINES;
+    return 1;
   }
-  
-  return 1; 
+
+  if(log_check_flag(flag, "term_decset", len)){
+    debug(INFO, "+debug: term_decset\n");
+    flags |= TERM_DECSET;
+    return 1;
+  }
+
+  if(log_check_flag(flag, "term_sgr", len)){
+    debug(INFO, "+debug: term_sgr\n");
+    flags |= TERM_SGR;
+    return 1;
+  }
+
+  return 0; 
 }
 
 int log_flags(char *flags) {
@@ -81,7 +100,9 @@ int log_flags(char *flags) {
     else
       len = strlen(cur); 
 
-    log_set_flag(cur, len);
+    if(!log_set_flag(cur, len)) {
+      debug(INFO, "+debug: %s\n", cur);
+    }
     
   }
   
@@ -89,7 +110,7 @@ int log_flags(char *flags) {
 }
 
 int log_open(char *path) {
-  int fd = open(path, O_CREAT|O_APPEND|O_WRONLY);
+  int fd = open(path, O_CREAT|O_APPEND|O_WRONLY, 0600);
   if(fd < 0){
     return 0; 
   }
