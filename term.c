@@ -801,9 +801,9 @@ static void term_filter_ED(struct term *t) {
 
   // Only supports two terms, region erase seems to only work on xterm :/ 
   if(t->top == 1) {
-    term_write(t, "\033[%d;%dH\033[1J\033[%d;%dH", t->bottom, 1, row, col);
+    term_write(t, "\033[%d;%dH\033[K\033[1J\033[%d;%dH", t->bottom, 1, row, col);
   } else { 
-    term_write(t, "\033[%d;%dH\033[0J\033[%d;%dH", t->top, 1, row, col);
+    term_write(t, "\033[%d;%dH\033[K\033[0J\033[%d;%dH", t->top, 1, row, col);
   }
 }
 
@@ -813,7 +813,7 @@ static void term_filter_DECSET(struct term *t) {
   int reset = 0; 
   int num = 0;
   int map = 0;
-
+  
   TERM_DEBUG(TERM_DECSET, t, "term_filter_DECSET: start\n");
   
   // CSI ? P m h
@@ -836,6 +836,18 @@ static void term_filter_DECSET(struct term *t) {
   }
 
   TERM_DEBUG(TERM_DECSET, t, "num: %d\n", num);
+
+  // We don't allow alt screen.
+  // TOOD: we can do better, we can just swap out our lines buffers for fresh
+  // ones, and restore them when the reset comes in. Nobody will be the wiser. 
+  if(!reset &&
+     (num == 47 ||
+      num == 1047 || 
+      num == 1049) ) {
+    rewind_esc(t);
+    return; 
+  }
+  
   
   if(num >= DECSET_MAX) return;
   map = decset_low_table[num]; 
@@ -1000,6 +1012,7 @@ static void term_filter_SGR(struct term *t) {
   } while (pos < t->pos); 
   
 }
+
 
 static void filter(struct term *t) {
 
