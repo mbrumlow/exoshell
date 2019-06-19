@@ -7,7 +7,7 @@ This is very much a work in progress -- Here be Dragons!
 
 ** Demo 
 
-[[/images/exoshell_01.png]]
+[[/images/exoshell.png]]
 
 https://youtu.be/xn83HuGUduE
 
