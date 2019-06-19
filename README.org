@@ -30,9 +30,9 @@ sudo make install
   No, Emacs is not required. But many parts of this project are modeled off of
   Emacs. 
 
-- Why?.
+- Why did you make this?
 
-  See the "Why?" section below.
+  See the "Why I made this" section below.
 
 - What terminal can I use this? 
 
@@ -41,7 +41,7 @@ sudo make install
   lack of support for clearing a rectangular region. This may be emulated later. 
 
 
-*** Why? 
+*** Why I made this
 
 For the longest time I have wanted to be able to programmatic control my terminal
 for various task. This is mostly because my carrear path has required me to log
