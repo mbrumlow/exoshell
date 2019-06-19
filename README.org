@@ -1,6 +1,6 @@
 * Exoshell
 
-A terminal proxy with sub-shell for programmatic controlling your via
+A terminal proxy with subshell for programmatic controlling your via
 Common-Lisp terminal. 
 
 This is very much a work in progress -- Here be Dragons! 
