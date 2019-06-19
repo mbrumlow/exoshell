@@ -28,7 +28,7 @@ link below.
 autoreconf -iv
 ./configure 
 make 
-sudo make install 
+Sudo make install 
 #+END_SRC
 
 *** FAQ 
@@ -52,7 +52,7 @@ sudo make install
 *** Why I made this
 
 For the longest time I have wanted to be able to programmatic control my terminal
-for various task. This is mostly because my carrear path has required me to log
+for various task. This is mostly because my career path has required me to log
 into many differed systems not fully under my control, or as one offs. I often
 thought it would be nice to be able to log my interactions with such systems,
 and to be able to automate some of the more repetitive task without giving up
