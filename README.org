@@ -3,6 +3,8 @@
 A terminal proxy with sub-shell for programmatic controlling your via
 Common-Lisp terminal. 
 
+This is very much a work in progress -- Here be Dragons! 
+
 ** Getting Started 
 
 *** Prerequisites
@@ -21,6 +23,29 @@ make
 sudo make install 
 #+END_SRC
 
+*** FAQ 
+
+- Does this require Emacs: no. 
+- Why: see the "Why?" section below.
+
+*** Why? 
+
+For the longest time I have wanted to be able to programmatic control my terminal
+for various task. This is mostly because my carrear path has required me to log
+into many differed systems not fully under my control, or as one offs. I often
+thought it would be nice to be able to log my interactions with such systems,
+and to be able to automate some of the more repetitive task without giving up
+interactivity with the terminal as you do with things like expect scripts. The
+solution for me was to have some way of reading exactly what is on the terminal
+pragmatically and then reacting to what is on the screen with various code
+snippets. 
+
+*** Future features 
+
+- Send and receive files from remote nested terminals.
+- Parse JSON on display to gather information. 
+- Line, word and character hooks. 
+- Expect like handling of events on screen. 
 
 
 
