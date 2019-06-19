@@ -18,7 +18,7 @@
 #define LOG(fmt, arg...) debug(INFO, fmt, ##arg);
 #define TRACE(flag, fmt, arg...) debug(, fmt, ##arg);
 
-int log_init(int argc, char **argv);
-void debug(uint64_t tflag, const char *format, ...); 
+int log_init (int argc, char **argv);
+void debug (uint64_t tflag, const char *format, ...);
 
 #endif //EXOTERM_LOG_H

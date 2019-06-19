@@ -18,18 +18,19 @@
 #define PROTO_NONE   0x001000
 #define PROTO_STRING 0x001001
 
-struct message {
+struct message
+{
   uint32_t type;
   uint32_t size;
-  unsigned char buf[512]; 
+  unsigned char buf[512];
 };
 
-uint32_t proto_send_uint32(int fd, uint32_t s);
-uint32_t proto_read_uint32(int fd, uint32_t *p); 
-uint32_t proto_send_eof(int fd); 
-uint32_t proto_read_req(int fd); 
-uint32_t proto_send_req(int fd, uint32_t req);
-uint32_t proto_send_string(int fd, char *s, int len);
-uint32_t proto_read_string(int fd, char **p); 
-  
+uint32_t proto_send_uint32 (int fd, uint32_t s);
+uint32_t proto_read_uint32 (int fd, uint32_t * p);
+uint32_t proto_send_eof (int fd);
+uint32_t proto_read_req (int fd);
+uint32_t proto_send_req (int fd, uint32_t req);
+uint32_t proto_send_string (int fd, char *s, int len);
+uint32_t proto_read_string (int fd, char **p);
+
 #endif //EXOTERM_PROTO_H
