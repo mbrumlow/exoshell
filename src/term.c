@@ -110,8 +110,8 @@ read_cursor (int fd, int *row, int *col)
     {
       do { 
         ret = read (fd, &c, 1);
-
       }
+      
       while (ret == -1 && errno == EAGAIN);
       
       if (ret != 1) return;
