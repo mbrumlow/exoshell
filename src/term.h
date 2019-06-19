@@ -53,7 +53,7 @@ void term_update (struct term *t, unsigned char *buf, int len);
 void term_save (struct term *t);
 void term_select (struct term *t);
 void term_resize (struct term *t, int top, int bottom, int columns);
-void term_send (struct term *t, const void *buf, size_t count);
+void term_send (struct term *t, void *buf, size_t count);
 void term_clear (struct term *t);
 void term_set_extra (struct term *t, const char *buf);
 void term_unset_extra (struct term *t);

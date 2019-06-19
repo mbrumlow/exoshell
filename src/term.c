@@ -97,6 +97,7 @@ void
 read_cursor (int fd, int *row, int *col)
 {
 
+  int ret = 0;
   int step = 0;
   int *cur = row;
   int t = 0;
@@ -107,7 +108,14 @@ read_cursor (int fd, int *row, int *col)
   //"\33[5;28R"
   for (;;)
     {
-      read (fd, &c, 1);
+      do { 
+        ret = read (fd, &c, 1);
+
+      }
+      while (ret == -1 && errno == EAGAIN);
+      
+      if (ret != 1) return;
+      
       switch (step)
 	{
 	case 0:
@@ -499,7 +507,7 @@ term_select (struct term *t)
 
   if (t->extra)
     {
-      write (t->host, t->extra, strlen (t->extra));
+      writefd (t->host, t->extra, strlen (t->extra));
     }
 
   TERM_DEBUG (TERM, t, "term_select: top: %d, bot: %d, cr: %d, cc: %d\n",
@@ -1477,7 +1485,7 @@ term_draw_line (struct term *t, int n)
 
   if (t->extra)
     {
-      write (t->host, t->extra, strlen (t->extra));
+      writefd (t->host, t->extra, strlen (t->extra));
       term_write (t, "\033[2K");
     }
   else
@@ -1580,9 +1588,9 @@ term_resize (struct term *t, int top, int bottom, int columns)
 }
 
 void
-term_send (struct term *t, const void *buf, size_t count)
+term_send (struct term *t, void *buf, size_t count)
 {
-  write (t->pty, buf, count);
+  writefd (t->pty, buf, count);
 }
 
 void

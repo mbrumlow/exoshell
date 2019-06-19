@@ -57,7 +57,7 @@ signal_handler (int signo)
     {
       int opt = fcntl (sigpipe, F_GETFL);
       fcntl (sigpipe, F_SETFL, opt | O_NONBLOCK);
-      write (sigpipe, &sig, 1);
+      writefd (sigpipe, &sig, 1);
       fcntl (sigpipe, F_SETFL, opt);
     }
 }
@@ -213,10 +213,21 @@ exoshell_main (int argc, char **argv)
       execvp (cmd, argv);
     }
 
-  pipe (control_pipe_in);
-  pipe (control_pipe_out);
-  pipe (data_pipe_out);
-  pipe (data_pipe_in);
+  if (pipe (control_pipe_in) != 0) {
+    fprintf(stderr, "failed to create control pipe in with error %d", errno); 
+  }
+
+  if (pipe (control_pipe_out) != 0) {
+    fprintf(stderr, "failed to create control pipe out with error %d", errno); 
+  }
+  
+  if (pipe (data_pipe_out) != 0) {
+    fprintf(stderr, "failed to create data pipe out with error %d", errno);
+  }
+  
+  if (pipe (data_pipe_in) != 0) {
+    fprintf(stderr, "failed to create data pipe in with error %d", errno);
+  }
 
   control_pid = forkpty (&control_pty, NULL, NULL, &wbuf);
   if (!control_pid)
@@ -240,7 +251,10 @@ exoshell_main (int argc, char **argv)
   target.host_decset_low = decset_low;
 
   // Set up pipe based signal handler. 
-  pipe (signal_pipe);
+  if (pipe (signal_pipe) != 0) {
+    fprintf(stderr, "failed to create signal pipe with error %d", errno);
+  }
+  
   sigpipe = signal_pipe[1];
 
   // Clear the host term. 

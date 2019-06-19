@@ -57,7 +57,7 @@ term_send_raw (cl_object i)
 
   if (target_pty)
     {
-      write (target_pty, buf, i->string.dim);
+      writefd (target_pty, buf, i->string.dim);
       ret = Ct;
     }
 
