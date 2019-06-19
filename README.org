@@ -7,7 +7,10 @@ Common-Lisp terminal.
 
 *** Prerequisites
 
-This project requires ECL (Embeddable Common-Lisp) be installed 
+This project requires ECL (Embeddable Common-Lisp) which can be found at the
+link below. 
+
+- https://common-lisp.net/project/ecl/
 
 *** Installing 
 
