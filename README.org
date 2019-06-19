@@ -1,1 +1,24 @@
-# exoshell
+* Exoshell
+
+A terminal proxy with sub-shell for programmatic controlling your via
+Common-Lisp terminal. 
+
+** Getting Started 
+
+*** Prerequisites
+
+This project requires ECL (Embeddable Common-Lisp) be installed 
+
+*** Installing 
+
+#+BEGIN_SRC sh
+autoreconf -iv
+./configure 
+make 
+sudo make install 
+#+END_SRC
+
+
+
+
+
