@@ -25,7 +25,7 @@ sudo make install
 
 *** FAQ 
 
-- Does this require Emacs. 
+- Does this require Emacs? 
 
   No, Emacs is not required. But many parts of this project are modeled off of
   Emacs. 
