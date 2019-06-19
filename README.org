@@ -25,8 +25,21 @@ sudo make install
 
 *** FAQ 
 
-- Does this require Emacs: no. 
-- Why: see the "Why?" section below.
+- Does this require Emacs. 
+
+  No, Emacs is not required. But many parts of this project are modeled off of
+  Emacs. 
+
+- Why?.
+
+  See the "Why?" section below.
+
+- What terminal can I use this? 
+
+  Any xterm compatible terminal should work fine. Although some things have been
+  tailored to Alacritty not fully implemented xterm implementation. Namely the
+  lack of support for clearing a rectangular region. This may be emulated later. 
+
 
 *** Why? 
 
