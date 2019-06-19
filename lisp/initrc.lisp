@@ -1,17 +1,10 @@
+;; User exoshell  home 
+(setq exoshell-home (merge-pathnames ".exoshell.d/"
+                                       (user-homedir-pathname)))
 
-;; (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
-;;                                        (user-homedir-pathname))))
-;;   (when (probe-file quicklisp-init)
-;;     (load quicklisp-init)))
-
-(let ((quicklisp-init "quicklisp/setup.lisp"))
-  (when (probe-file quicklisp-init)
-    (load quicklisp-init)))
-
-
-(ql:quickload "swank")
-(require 'swank)
-
+;; User init file. 
+(setq user-init-file (merge-pathnames ".exoshell.d/init.lisp"
+                                       (user-homedir-pathname)))
 
 (defun term-get-lines (n)
   (let ((*ret* (list)))
@@ -30,22 +23,21 @@
     (with-simple-restart
      (default-shell "Restart default-shell") (default-shell)))))
 
+(defun process-run-function (process-name process-function &rest args)
+  (let ((process (mp:make-process process-name)))
+    (apply #'mp:process-preset process function args)
+    (mp:process-enable process)))
 
-(defun start-swank () 
-  (ql:quickload "swank")
-  (require 'swank)
+(defun quicklisp-load ()
+  (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" exoshell-home)))
+    (if (probe-file quicklisp-init)
+        (load quicklisp-init)
+        (progn
+          (load (merge-pathnames "quicklisp.lisp" exoshell-dist))
+          (load (merge-pathnames "quicklisp-util.lisp" exoshell-dist))
+          (quicklisp-setup)))))
 
-  (setf swank:*use-dedicated-output-stream* nil)
-  (setq slime-net-coding-system 'utf-8-unix)
-  (setf swank:*communication-style* :SPAWN)
-  (swank:create-server :port 4006 :dont-close t )
-  (loop (sleep 1)))
+;; Load user init if it exist. 
+(when (probe-file user-init-file)
+  (load user-init-file)))
 
-;; (defun start-swank () 
-
-;;   )
-
-
-;; (swank:create-server :port 4006  :dont-close t :coding-system "utf-8-unix")
-
-;(loop (sleep 1))

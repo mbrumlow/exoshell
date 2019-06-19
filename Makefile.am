@@ -4,5 +4,6 @@ SUBDIRS = \
 exoshelldir = $(datadir)/exoshell
 exoshell_DATA = \
 	$(top_srcdir)/lisp/initrc.lisp \
+	$(top_srcdir)/lisp/quicklisp-util.lisp \
 	$(top_srcdir)/3rdparty/quicklisp.lisp
 

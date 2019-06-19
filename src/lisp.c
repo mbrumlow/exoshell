@@ -117,26 +117,36 @@ cl_object term_get_last_line(cl_object l) {
 }
 
 void initialize_cl(int argc, char **argv) {
+  
+  char buf[4096];
+  
   ecl_set_option(ECL_OPT_TRAP_SIGINT, 0);
   cl_boot(argc, argv);
   atexit(cl_shutdown);
 
-  lisp("(load \"initrc.lisp\")");
+  snprintf(buf, sizeof(buf), "(setq exoshell-dist \"%s/\")", DATADIR);
+  lisp(buf);
+  
+  //  lisp("(load \"initrc.lisp\")");
   
   DEFUN("term-send-raw", term_send_raw, 1);
   DEFUN("term-get-last-line", term_get_last_line, 1);
+
+  snprintf(buf, sizeof(buf), "(load \"%s/initrc.lisp\")", DATADIR);
+  lisp(buf);
+
 }
 
-void *swank(void *ptr) {
+/* void *swank(void *ptr) { */
 
-  ecl_import_current_thread(ECL_NIL, ECL_NIL);
+/*   ecl_import_current_thread(ECL_NIL, ECL_NIL); */
 
-  lisp("(start-swank)"); 
+/*   lisp("(start-swank)");  */
   
-  ecl_release_current_thread();
+/*   ecl_release_current_thread(); */
 
-  return NULL;
-}
+/*   return NULL; */
+/* } */
 
 int exoshell(int argc, char **argv, int in, int out, int din, int dout, int target) {
 
@@ -153,9 +163,9 @@ int exoshell(int argc, char **argv, int in, int out, int din, int dout, int targ
   
   initialize_cl(argc,argv);
 
-  if(pthread_create(&swank_thread, NULL, &swank, NULL)) {
-    printf("error: failed to start swank thread\n");
-  }
+  /* if(pthread_create(&swank_thread, NULL, &swank, NULL)) { */
+  /*   printf("error: failed to start swank thread\n"); */
+  /* } */
 
   for(;;) {
 
@@ -178,9 +188,9 @@ int exoshell(int argc, char **argv, int in, int out, int din, int dout, int targ
 
   }
 
-  if(pthread_join(swank_thread, NULL)) {
-    printf("error: failed to join swank thread\n");
-  }
+  /* if(pthread_join(swank_thread, NULL)) { */
+  /*   printf("error: failed to join swank thread\n"); */
+  /* } */
 
   pthread_mutex_destroy(&data_mutex);
 

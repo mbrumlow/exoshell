@@ -1,4 +1,5 @@
-AM_CFLAGS = -I$(top_srcdir)/src
+AM_CFLAGS  = -I$(top_srcdir)/src
+AM_CFLAGS += -DDATADIR='"$(datadir)/exoshell"'
 
 AM_LDFLAGS = -lpthread -lecl -lutil -lgc
 
