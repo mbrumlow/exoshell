@@ -1,7 +1,7 @@
 * Exoshell
 
-A terminal proxy with subshell for programmatic controlling your via
-Common-Lisp terminal. 
+A terminal proxy with subshell for programmatic control your terminal via Common Lisp.
+
 
 This is very much a work in progress -- Here be Dragons! 
 
@@ -48,6 +48,12 @@ Sudo make install
   tailored to Alacritty not fully implemented xterm implementation. Namely the
   lack of support for clearing a rectangular region. This may be emulated later. 
 
+- Why this over a normal script?
+
+  Scripts require you to copy them to their target and run them. A function in
+  exoshell can execute on any remote host you are connected to, not requing you
+  to copy the script and or ensure the interrupter exist on the host -- so long
+  as you use standard system commands that are on the host. 
 
 *** Why I made this
 
